@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "platelab"
+version = "0.1.0"
+description = "Parsing and fitting utilities for plate-based biochemical assays"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "pandas",
+    "openpyxl",
+    "scipy",
+]
+
+[project.optional-dependencies]
+plot = ["seaborn", "matplotlib"]
