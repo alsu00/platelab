@@ -48,7 +48,7 @@ def read_kinetic_series(path, top_left_label="Cycle Nr."):
                 elif (
                     cell_val != ""
                     and cell_val is not None
-                    and bool(re.match("^[A-Z][1-9]*$", well))
+                    and bool(re.match("^[A-Z][0-9]*$", well))
                     and bool(re.match("^[0-9]*$", cycle))
                 ):
                     frame.append(
@@ -150,7 +150,7 @@ def read_scan(path, top_left_label="Wavel."):
                 elif (
                     cell_val != ""
                     and cell_val is not None
-                    and bool(re.match("^[A-Z][1-9]*$", well))
+                    and bool(re.match("^[A-Z][0-9]*$", well))
                     and bool(re.match("^[0-9]*$", str(wavelength)))
                 ):
                     frame.append(
