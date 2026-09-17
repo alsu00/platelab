@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .fitting import fit_lin, lin_func, convert_to_conc
+from .fitting import fit_lin, lin_func, fit_quad, quad_func
+from .data_transformation import convert_to_conc, convert_to_conc_quad
 
 
-def process_bca(df, std_conc_col, sample_col=None, ax=None):
+def process_bca(df, std_conc_col, sample_col=None, ax=None, fit='linear'):
     """Fit a BCA standard curve and back-calculate sample protein concentrations.
 
     Typical workflow::
@@ -34,12 +35,14 @@ def process_bca(df, std_conc_col, sample_col=None, ax=None):
     ax : matplotlib.axes.Axes, optional
         Axes to draw the standard curve on. If ``None`` a new figure is
         created and returned as the third element of the tuple.
+    fit : {'linear', 'quadratic'}, optional
+        Model to use for the standard curve. Default ``'linear'``.
 
     Returns
     -------
     params : tuple
-        ``(m, b, r_squared)`` from the linear fit
-        ``absorbance = m * conc_ug_mL + b``.
+        For ``fit='linear'``: ``(m, b, r_squared)``.
+        For ``fit='quadratic'``: ``(a, b, c, r_squared)``.
     results : pd.DataFrame
         When *sample_col* is given: columns are ``[sample_col,
         'absorbance', 'conc_ug_mL', 'n']`` (replicates averaged).
@@ -73,8 +76,12 @@ def process_bca(df, std_conc_col, sample_col=None, ax=None):
     x = std_avg["conc_ug_mL"].values.astype(float)
     y = std_avg["absorbance"].values.astype(float)
 
-    m, b, r_squared = fit_lin(x, y)
-    params = (m, b, r_squared)
+    if fit == 'quadratic':
+        a, b_q, c_q, r_squared = fit_quad(x, y)
+        params = (a, b_q, c_q, r_squared)
+    else:
+        m, b, r_squared = fit_lin(x, y)
+        params = (m, b, r_squared)
 
     # ------------------------------------------------------------------ #
     # Plot
@@ -98,11 +105,18 @@ def process_bca(df, std_conc_col, sample_col=None, ax=None):
     )
     # Fit line
     x_fit = np.linspace(x.min(), x.max(), 300)
-    ax.plot(
-        x_fit, lin_func(x_fit, m, b),
-        color="tomato", linewidth=1.5,
-        label=f"y = {m:.5f}x + {b:.4f}\n$R^2$ = {r_squared:.4f}",
-    )
+    if fit == 'quadratic':
+        b_sign = "+" if b_q >= 0 else "-"
+        c_sign = "+" if c_q >= 0 else "-"
+        label_str = (f"y = {a:.5f}x² {b_sign} {abs(b_q):.5f}x "
+                     f"{c_sign} {abs(c_q):.4f}\n$R^2$ = {r_squared:.4f}")
+        ax.plot(x_fit, quad_func(x_fit, a, b_q, c_q),
+                color="tomato", linewidth=1.5, label=label_str)
+    else:
+        b_sign = "+" if b >= 0 else "-"
+        label_str = f"y = {m:.5f}x {b_sign} {abs(b):.4f}\n$R^2$ = {r_squared:.4f}"
+        ax.plot(x_fit, lin_func(x_fit, m, b),
+                color="tomato", linewidth=1.5, label=label_str)
 
     ax.set_xlabel("Protein concentration (µg/mL)")
     ax.set_ylabel("Absorbance (562 nm)")
@@ -115,7 +129,10 @@ def process_bca(df, std_conc_col, sample_col=None, ax=None):
     # ------------------------------------------------------------------ #
     # Back-calculate sample concentrations
     # ------------------------------------------------------------------ #
-    sample_df["conc_ug_mL"] = convert_to_conc(sample_df["value"], (m, b))
+    if fit == 'quadratic':
+        sample_df["conc_ug_mL"] = convert_to_conc_quad(sample_df["value"], (a, b_q, c_q))
+    else:
+        sample_df["conc_ug_mL"] = convert_to_conc(sample_df["value"], (m, b))
 
     if sample_col is not None:
         results = (
